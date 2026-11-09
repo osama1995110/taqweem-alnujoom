@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>تقويم النجوم</title>
+<style>
+/* Layout: one-screen app — scrolling content, credit line, fixed bottom tab bar. Night-sky ink with dune-gold accents. */
+@font-face{font-family:"QuranFont";src:url("AmiriQuran.ttf") format("truetype");font-display:swap}
+:root{
+  --ink:#0b1622; --panel:#13212f; --panel2:#1a2c3d; --line:#25394d;
+  --sand:#e0b866; --sand-soft:#e0b86622; --text:#ece6d8; --muted:#93a3b3; --ok:#7fc8a9;
+  --page:#f6efdf; --page-ink:#1d1a14; --page-line:#d9c9a4;
+  --display:"Noto Naskh Arabic","Amiri","Scheherazade New",serif;
+  --body:"Noto Sans Arabic","Segoe UI",system-ui,sans-serif;
+  --quran:"QuranFont","Noto Naskh Arabic","Amiri",serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{background:var(--ink);color:var(--text);font-family:var(--body);font-size:15px;line-height:1.6;display:flex;flex-direction:column;overflow:hidden}
+main{flex:1;overflow-y:auto;padding:14px 16px 20px}
+.view{display:flex;flex-direction:column;gap:14px}
+.view[hidden],[hidden]{display:none!important}
+h1,h2,h3{margin:0;font-family:var(--display);font-weight:700;text-wrap:balance}
+h2{font-size:22px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px}
+.lbl{font-size:12px;color:var(--muted);letter-spacing:.3px}
+.num{font-variant-numeric:tabular-nums}
+.note{font-size:12px;color:var(--muted)}
+select,input,button{font:inherit;color:inherit}
+select,input[type=search]{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:9px 10px;width:100%}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:9px 12px;white-space:nowrap}
+.btn.gold{background:var(--sand);color:var(--ink);border-color:var(--sand);font-weight:700}
+.row{display:flex;gap:8px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 12px;border-radius:99px;background:var(--sand-soft);color:var(--sand);font-size:13px;font-weight:600;border:1px solid #e0b86655}
+
+/* Hero: the star of the day */
+.hero{position:relative;overflow:hidden;background:radial-gradient(120% 90% at 85% 0%,#22405c 0%,#13212f 55%,#0f1b27 100%);border-color:#2d4762;padding:20px 18px 18px}
+.hero canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.hero>*{position:relative}
+.hero .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.star-name{font-size:56px;line-height:1.15;color:var(--sand);margin:10px 0 2px}
+.star-day{font-size:17px}
+.bar{height:6px;background:#ffffff14;border-radius:9px;margin:14px 0 10px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--sand);border-radius:9px}
+.hero p{margin:6px 0 0;color:#cfd6dc;font-size:14px}
+.next{margin-top:12px;padding-top:12px;border-top:1px dashed #ffffff22;display:flex;justify-content:space-between;font-size:14px;color:var(--muted)}
+.next b{color:var(--text)}
+
+.dates{display:grid;gap:10px}
+.drow{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.drow:last-child{border:0;padding:0}
+.drow .v{font-family:var(--display);font-size:19px;text-align:left}
+
+/* Prayers */
+.ph{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.nextp{display:flex;justify-content:space-between;align-items:center;margin:12px 0;background:var(--panel2);border-radius:14px;padding:12px 14px}
+.nextp .t{font-size:26px;font-weight:700;color:var(--sand);direction:ltr}
+.plist{display:flex;flex-direction:column}
+.prow{display:grid;grid-template-columns:1fr auto 44px;align-items:center;padding:9px 2px;border-bottom:1px solid var(--line)}
+.prow:last-child{border:0}
+.prow.on .pn{color:var(--sand);font-weight:700}
+.prow .pt{font-size:17px;direction:ltr}
+.bell{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:none;color:var(--muted);display:grid;place-items:center;justify-self:end}
+.bell.active{color:var(--ink);background:var(--sand);border-color:var(--sand)}
+.bell:disabled{opacity:.25}
+.locbox{margin-top:12px;padding:12px;border-radius:14px;background:var(--panel2);display:flex;flex-direction:column;gap:10px}
+.locnow{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.locnow b{font-size:16px}
+.settings{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.settings summary{cursor:pointer;color:var(--sand);font-weight:600;list-style:none}
+.settings summary::-webkit-details-marker{display:none}
+.settings .f{display:flex;flex-direction:column;gap:4px;margin-top:12px}
+.step{display:flex;align-items:center;gap:10px}
+.step button{width:40px;height:40px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);font-size:20px}
+.step span{min-width:70px;text-align:center}
+.sw{display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:10px}
+.sw input{width:22px;height:22px;accent-color:var(--sand)}
+
+/* Stars list */
+.season{margin:6px 4px 0;color:var(--sand);font-family:var(--display);font-size:19px}
+.slist{display:flex;flex-direction:column;gap:8px}
+.sitem{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.sitem.cur{border-color:var(--sand);background:linear-gradient(0deg,var(--sand-soft),var(--sand-soft)),var(--panel)}
+.sitem summary{list-style:none;display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:8px;cursor:pointer}
+.sitem summary::-webkit-details-marker{display:none}
+.sitem .ix{color:var(--muted);font-size:13px}
+.sitem .nm{font-family:var(--display);font-size:20px}
+.sitem .dt{font-size:13px;color:var(--muted);text-align:left}
+.sitem p{margin:8px 0 0;font-size:14px;color:#cfd6dc}
+
+/* Qibla */
+.compass{width:min(78vw,300px);aspect-ratio:1;max-width:100%;margin:8px auto;position:relative}
+.dial{position:absolute;inset:0;border-radius:50%;border:2px solid var(--line);background:radial-gradient(circle,#1a2c3d 0%,#13212f 70%);transition:transform .15s linear}
+.dial span{position:absolute;left:50%;top:6px;transform-origin:50% calc(min(39vw,150px) - 6px);font-size:14px;color:var(--muted);margin-left:-6px}
+.needle{position:absolute;left:50%;top:50%;width:0;height:0}
+.needle i{position:absolute;left:-7px;bottom:0;width:14px;height:calc(min(39vw,150px) - 34px);background:linear-gradient(var(--sand),#e0b86600);clip-path:polygon(50% 0,100% 22%,62% 22%,62% 100%,38% 100%,38% 22%,0 22%)}
+.needle b{position:absolute;left:-15px;top:calc(-1 * (min(39vw,150px) - 6px));font-size:22px}
+.center{position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-7px;border-radius:50%;background:var(--sand)}
+.qinfo{text-align:center}
+.qinfo .big{font-size:40px;font-weight:700;color:var(--sand);direction:ltr}
+.aligned .dial{border-color:var(--ok);box-shadow:0 0 0 4px #7fc8a933}
+
+/* Mushaf */
+.resume{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.surahs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.surahs button{display:grid;grid-template-columns:28px 1fr;gap:2px 8px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:right;min-width:0}
+.surahs button em{grid-row:span 2;font-style:normal;color:var(--sand);font-size:13px;text-align:center}
+.surahs button span{font-family:var(--display);font-size:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.surahs button small{color:var(--muted);font-size:11.5px}
+.reader-top{position:sticky;top:-14px;z-index:2;background:var(--ink);padding:6px 0 10px;margin-top:-6px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.reader-top h2{font-size:22px;color:var(--sand)}
+.fs{display:flex;gap:6px}
+.fs button{width:38px;height:38px;border-radius:10px;background:var(--panel2);border:1px solid var(--line)}
+.page{background:var(--page);color:var(--page-ink);border-radius:16px;padding:18px 16px;border:1px solid var(--page-line);box-shadow:inset 0 0 0 6px #f6efdf,inset 0 0 0 7px var(--page-line)}
+.page .sname{text-align:center;font-family:var(--display);font-size:20px;border:1px solid var(--page-line);border-radius:10px;padding:4px;margin-bottom:10px}
+.basmala{text-align:center;font-family:var(--quran);font-size:calc(var(--qs) * 1.05);margin:4px 0 10px}
+.ayat{font-family:var(--quran);font-size:var(--qs);line-height:2.15;text-align:justify;margin:0}
+.ayat .am{color:#9a7428;font-size:.85em;white-space:nowrap;padding:0 2px}
+.ayat .hl{background:#e0b86655;border-radius:6px}
+.rnav{display:flex;justify-content:space-between;gap:10px}
+
+/* Tasbeeh */
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--panel2);border-radius:14px;padding:4px}
+.seg button{background:none;border:0;border-radius:11px;padding:10px 6px;line-height:1.3}
+.seg button small{display:block;font-size:11.5px;color:var(--muted)}
+.seg button.sel{background:var(--sand);color:var(--ink);font-weight:700}
+.seg button.sel small{color:#3b2f17}
+.dhikrs{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.dhikrs button{background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:6px 14px}
+.dhikrs button.sel{background:var(--sand);color:var(--ink);border-color:var(--sand);font-weight:700}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}
+.steps div{text-align:center;font-size:12px;color:var(--muted);border-top:4px solid var(--line);padding-top:6px;line-height:1.3}
+.steps div.done{border-color:var(--ok);color:var(--ok)}
+.steps div.now{border-color:var(--sand);color:var(--sand);font-weight:700}
+.tap{width:min(70vw,250px);aspect-ratio:1;max-width:100%;border-radius:50%;margin:6px auto;display:grid;place-items:center;align-content:center;background:radial-gradient(circle at 50% 35%,#22405c,#13212f 70%);border:3px solid var(--sand);color:var(--text);user-select:none;padding:16px}
+.tap:active{transform:scale(.97)}
+.tap .c{font-size:64px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.tap .d{font-family:var(--display);font-size:19px;color:var(--sand);margin-top:6px;line-height:1.4}
+.stats{display:flex;justify-content:space-around;align-items:center;text-align:center;gap:8px}
+.stats b{display:block;font-size:22px;color:var(--sand)}
+
+/* Credit + bottom nav */
+.credit{text-align:center;font-size:11.5px;color:var(--muted);padding:0 16px 6px;background:#0e1a26}
+.credit b{color:var(--sand);font-weight:600}
+nav{display:grid;grid-template-columns:repeat(5,1fr);background:#0e1a26;border-top:1px solid var(--line);padding:6px 4px 2px}
+nav button{background:none;border:0;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;padding:4px 0}
+nav button svg{width:24px;height:24px}
+nav button.act{color:var(--sand)}
+nav button.act svg{filter:drop-shadow(0 0 6px #e0b86688)}
+.toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--sand);color:var(--ink);padding:8px 16px;border-radius:99px;font-weight:600;font-size:14px;z-index:9;max-width:90vw;text-align:center}
+</style>
+</head>
+<body>
+<main id="main">
+
+<!-- HOME -->
+<section class="view" id="v-home">
+  <div class="card hero">
+    <canvas id="sky"></canvas>
+    <div class="top"><span class="lbl">طالع اليوم · تقويم النجوم</span><span class="chip" id="hSeason"></span></div>
+    <h1 class="star-name" id="hStar"></h1>
+    <div class="star-day num" id="hDay"></div>
+    <div class="bar"><i id="hBar"></i></div>
+    <div class="note num" id="hRange"></div>
+    <p id="hDesc"></p>
+    <div class="next"><span>النجم التالي: <b id="hNext"></b></span><span class="num" id="hNextIn"></span></div>
+  </div>
+
+  <div class="card dates">
+    <div class="drow"><span class="lbl" id="hijriLbl">الهجري</span><span class="v num" id="dHijri"></span></div>
+    <div class="drow"><span class="lbl">الميلادي</span><span class="v num" id="dGreg"></span></div>
+    <div class="drow"><span class="lbl">الشهر السرياني</span><span class="v" id="dSyr"></span></div>
+  </div>
+
+  <div class="card">
+    <div class="ph"><h2>مواقيت الصلاة</h2><span class="note" id="methodName"></span></div>
+    <div class="nextp"><div><div class="lbl">الصلاة القادمة</div><div style="font-size:19px;font-weight:700" id="npName"></div></div><div class="t num" id="npLeft"></div></div>
+    <div class="plist" id="plist"></div>
+
+    <div class="locbox">
+      <div class="locnow"><div><div class="lbl">الموقع الحالي</div><b id="locName"></b> <span class="note num" id="locCoords"></span></div></div>
+      <button class="btn gold" id="gpsBtn">📍 GPS</button>
+      <select id="citySel" aria-label="أو اختر مدينة"></select>
+    </div>
+
+    <details class="settings">
+      <summary>⚙ طريقة الحساب والتقويم الهجري</summary>
+      <div class="f"><label class="lbl" for="mSel">طريقة حساب المواقيت</label><select id="mSel"></select></div>
+      <div class="f"><label class="lbl" for="hSel">التقويم الهجري</label>
+        <select id="hSel"><option value="islamic-umalqura">أم القرى (الرسمي في السعودية)</option><option value="islamic-civil">الهجري الحسابي</option><option value="islamic-tbla">الهجري الفلكي</option></select></div>
+      <div class="f"><span class="lbl">تعديل التاريخ الهجري (حسب رؤية الهلال في بلدك)</span>
+        <div class="step"><button id="hMinus" aria-label="إنقاص يوم">−</button><span class="num" id="hAdj">0 يوم</span><button id="hPlus" aria-label="زيادة يوم">+</button></div></div>
+      <label class="sw"><span>تحديث الموقع تلقائياً عند فتح التطبيق</span><input type="checkbox" id="autoLoc"></label>
+    </details>
+  </div>
+</section>
+
+<!-- STARS -->
+<section class="view" id="v-stars" hidden>
+  <div class="card"><h2>منازل النجوم (الطوالع)</h2>
+  <p class="note" style="margin:6px 0 0">ثمانية وعشرون نجماً، لكل نجم ١٣ يوماً تقريباً (والجبهة ١٤ يوماً)، وفق التقويم المتداول في الجزيرة العربية. اضغط على أي نجم لقراءة وصفه.</p></div>
+  <div id="slist" class="slist"></div>
+</section>
+
+<!-- QIBLA -->
+<section class="view" id="v-qibla" hidden>
+  <div class="card qinfo">
+    <h2>اتجاه القبلة</h2>
+    <div class="compass" id="compass">
+      <div class="dial" id="dial">
+        <span style="transform:rotate(0deg)">ش</span><span style="transform:rotate(90deg)">ق</span><span style="transform:rotate(180deg)">ج</span><span style="transform:rotate(270deg)">غ</span>
+        <div class="needle" id="needle"><i></i><b>🕋</b></div>
+      </div>
+      <div class="center"></div>
+    </div>
+    <div class="big num" id="qDeg"></div>
+    <div class="note" id="qHint">ضع الجوال بشكل مسطح وأدر جسمك حتى يتجه السهم الذهبي إلى الأعلى.</div>
+    <div class="note" id="qDist" style="margin-top:6px"></div>
+  </div>
+</section>
+
+<!-- MUSHAF -->
+<section class="view" id="v-quran" hidden>
+  <div id="qIndex" class="view">
+    <div class="card"><h2>المصحف الشريف</h2>
+      <p class="note" style="margin:6px 0 10px">المصحف كاملاً داخل التطبيق ويعمل بدون إنترنت.</p>
+      <input type="search" id="sq" placeholder="ابحث عن سورة…" aria-label="بحث عن سورة"></div>
+    <div class="card resume" id="resume" hidden><div><div class="lbl">متابعة القراءة</div><b id="resumeName"></b></div><button class="btn gold" id="resumeBtn">متابعة</button></div>
+    <div class="surahs" id="surahs"></div>
+  </div>
+  <div id="qReader" hidden>
+    <div class="reader-top"><button class="btn" id="qBack">→ الفهرس</button><h2 id="rTitle"></h2>
+      <div class="fs"><button id="fsMinus" aria-label="تصغير الخط">أ-</button><button id="fsPlus" aria-label="تكبير الخط">أ+</button></div></div>
+    <div class="page" id="rPage"></div>
+    <div class="rnav" style="margin-top:12px"><button class="btn" id="rPrev">السورة السابقة</button><button class="btn" id="rNext">السورة التالية</button></div>
+  </div>
+</section>
+
+<!-- TASBEEH -->
+<section class="view" id="v-tasbeeh" hidden>
+  <div class="card">
+    <h2 style="margin-bottom:10px">المسبحة</h2>
+    <div class="seg" role="tablist">
+      <button id="modePrayer">أذكار الصلاة</button>
+      <button id="modeFree">الأذكار العامة</button>
+    </div>
+    <div id="prayerSteps" class="steps"></div>
+    <div id="freeDhikrs" class="dhikrs"></div>
+  </div>
+  <button class="tap" id="tapBtn" aria-label="تسبيح"><span class="c" id="tCount">0</span><span class="d" id="tDhikr"></span><span class="note num" id="tTarget"></span></button>
+  <div class="card stats">
+    <div><span class="lbl" id="tStatLbl">المجموع</span><b class="num" id="tStat">0</b></div>
+    <div><span class="lbl">مجموع اليوم</span><b class="num" id="tToday">0</b></div>
+    <div><button class="btn" id="tReset">تصفير</button></div>
+  </div>
+</section>
+</main>
+
+<nav id="nav">
+  <button data-v="home" class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.4 5.6 6 .5-4.6 4 1.4 5.9L12 16l-5.2 3 1.4-5.9-4.6-4 6-.5z"/></svg>اليوم</button>
+  <button data-v="stars"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><circle cx="12" cy="15" r="1.5" fill="currentColor"/></svg>النجوم</button>
+  <button data-v="qibla"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 5l3 8-3-2-3 2z" fill="currentColor"/></svg>القبلة</button>
+  <button data-v="quran"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5c3-1 6-1 8 1 2-2 5-2 8-1v14c-3-1-6-1-8 1-2-2-5-2-8-1z"/><path d="M12 6v14"/></svg>المصحف</button>
+  <button data-v="tasbeeh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="5" r="2"/><circle cx="6" cy="9" r="2"/><circle cx="18" cy="9" r="2"/><circle cx="7" cy="15.5" r="2"/><circle cx="17" cy="15.5" r="2"/><path d="M12 19v3"/><circle cx="12" cy="18" r="1.4"/></svg>المسبحة</button>
+</nav>
+<div class="credit">برمجة وتصميم: <b>أسامة أبو زيد</b> · Osama Abu Zaid ©</div>
+
+<script>
+"use strict";
+/* ---------- helpers ---------- */
+const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const $=id=>document.getElementById(id);
+const bridge=window.AndroidBridge||null;
+const toast=msg=>{const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2400)};
+const pad=n=>String(n).padStart(2,'0');
+const arNum=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+function vib(ms){try{if(bridge&&bridge.vibrate)bridge.vibrate(ms);else if(navigator.vibrate)navigator.vibrate(ms)}catch(e){}}
+
+/* ---------- settings ---------- */
+const cfg=Object.assign({method:'umm',asr:1,hcal:'islamic-umalqura',hadj:0,autoLoc:true},store.get('cfg',{}));
+const saveCfg=()=>store.set('cfg',cfg);
+
+/* ---------- Manazil (stars calendar) ---------- */
+// [name, start month, start day, sub-season, main season, description]
+const MANAZIL=[
+ ["الشرطين",5,12,"الكنة","الصيف","أول نجوم الكنة. يبدأ الحر بالاشتداد تدريجياً، وتنشط الرياح المثيرة للغبار، ويبدأ نضج بعض الثمار."],
+ ["البطين",5,25,"الكنة","الصيف","آخر نجوم الكنة. ترتفع الحرارة نهاراً وتجف الأعشاب، وتبدأ رياح البوارح بالهبوب."],
+ ["الثريا",6,7,"الثريا","القيظ","من أشهر النجوم عند العرب. بطلوعها فجراً يُؤرَّخ لدخول القيظ وشدة الحر وهبوب البوارح، وبطلوعها عشاءً في آخر السنة يُعرف دخول البرد، ومن أمثالهم: إذا طلعت الثريا عشاءً ابتغى الراعي كساءً."],
+ ["الدبران",6,20,"التويبع","القيظ","يُسمّى التويبع لأنه يتبع الثريا. حر شديد ورياح سموم، ويبدأ نضج الرطب المبكر."],
+ ["الهقعة",7,3,"الجوزاء الأولى","القيظ","دخول الجوزاء. شدة الحر وارتفاع الرطوبة على السواحل."],
+ ["الهنعة",7,16,"الجوزاء الثانية","القيظ","ذروة القيظ والرياح الحارة، ويطيب فيه الرطب."],
+ ["الذراع",7,29,"المرزم","القيظ","يستمر الحر الشديد، وتركد الرياح أحياناً وترتفع الرطوبة."],
+ ["النثرة",8,11,"الكليبين","القيظ","آخر نجوم القيظ، ويُعرف بجمرة القيظ لشدة حره ورطوبته."],
+ ["الطرف",8,24,"سهيل","الصفري","يطلع فيه نجم سهيل، فيبدأ انكسار الحر ليلاً ويبرد الماء آخر الليل."],
+ ["الجبهة",9,6,"سهيل","الصفري","يلطف الجو ليلاً ويقصر النهار، وتبدأ مواسم زراعة بعض الخضار. مدته ١٤ يوماً."],
+ ["الزبرة",9,20,"سهيل","الصفري","يعتدل الليل ويتقارب طول الليل والنهار، وقد تتكون سحب ممطرة في بعض المناطق."],
+ ["الصرفة",10,3,"سهيل","الصفري","سُمّي بذلك لانصراف الحر، فيعتدل الجو ويطيب."],
+ ["العواء",10,16,"الوسم","الوسم","أول نجوم الوسم، موسم أمطار الخير، ومع أمطاره المبكرة ينبت الفقع (الكمأ) والربيع."],
+ ["السماك",10,29,"الوسم","الوسم","يبرد الليل وتتوالى أمطار الوسم، ويُستحب فيه الزرع."],
+ ["الغفر",11,11,"الوسم","الوسم","يزداد البرد ليلاً، وتستمر أمطار الوسم في كثير من المناطق."],
+ ["الزبانا",11,24,"الوسم","الوسم","آخر نجوم الوسم. يشتد البرد تدريجياً ويطول الليل."],
+ ["الإكليل",12,7,"المربعانية","الشتاء","أول المربعانية (٤٠ يوماً)، دخول الشتاء الفعلي وطول الليل."],
+ ["القلب",12,20,"المربعانية","الشتاء","فيه أطول ليالي السنة، ويشتد البرد."],
+ ["الشولة",1,2,"المربعانية","الشتاء","آخر المربعانية، برد شديد وقد يقع الصقيع."],
+ ["النعائم",1,15,"الشبط","الشتاء","أول الشبط، برد قارس جاف ورياح باردة."],
+ ["البلدة",1,28,"الشبط","الشتاء","يستمر البرد، وتبدأ العصارة بالجريان في الأشجار."],
+ ["سعد الذابح",2,10,"العقارب","الشتاء","العقرب الأولى. برد مع رياح، ويبدأ النهار بالطول."],
+ ["سعد بلع",2,23,"العقارب","الشتاء","العقرب الثانية. يتقلب الجو بين برد ودفء، وتبلع الأرض ماء المطر."],
+ ["سعد السعود",3,8,"العقارب","الشتاء","العقرب الثالثة. تدفأ الأرض ويطيب الجو، ومن أمثالهم: إذا طلع سعد السعود نضر العود ولانت الجلود."],
+ ["سعد الأخبية",3,21,"الحميمين","الصيف","يتساوى فيه الليل والنهار، ويعتدل الجو، وتخرج الهوام من مخابئها."],
+ ["المقدم",4,3,"الحميمين","الصيف","يدفأ الجو وتتقلب الرياح ويكثر الغبار أحياناً."],
+ ["المؤخر",4,16,"الذراعين","الصيف","يبدأ الحر في الظهيرة، وتتشكل سحب رعدية في بعض المناطق."],
+ ["الرشا",4,29,"الذراعين","الصيف","آخر نجوم الربيع، يرتفع الحر نهاراً ويبدأ نضج بعض الثمار."]
+];
+const DAY=86400000;
+const midnight=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate());
+const dayDiff=(a,b)=>Math.round((midnight(b)-midnight(a))/DAY);
+function starOf(date){
+  const d=midnight(date),Y=d.getFullYear(),starts=[];
+  for(const y of [Y-1,Y,Y+1]) MANAZIL.forEach((m,i)=>starts.push({i,s:new Date(y,m[1]-1,m[2])}));
+  starts.sort((a,b)=>a.s-b.s);
+  let k=0;for(let j=0;j<starts.length;j++){if(starts[j].s<=d)k=j}
+  const cur=starts[k],nx=starts[k+1];
+  return {i:cur.i,m:MANAZIL[cur.i],start:cur.s,end:new Date(nx.s-DAY),len:dayDiff(cur.s,nx.s),day:dayDiff(cur.s,d)+1,next:MANAZIL[nx.i],nextIn:dayDiff(d,nx.s)};
+}
+
+/* ---------- Dates ---------- */
+const GM=["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+const SM=["كانون الثاني","شباط","آذار","نيسان","أيار","حزيران","تموز","آب","أيلول","تشرين الأول","تشرين الثاني","كانون الأول"];
+const WD=["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+const HCAL={"islamic-umalqura":"أم القرى","islamic-civil":"الحسابي","islamic-tbla":"الفلكي"};
+function hijri(d,opt){
+  const s=new Date(d.getTime()+cfg.hadj*DAY);
+  try{return new Intl.DateTimeFormat('ar-SA-u-ca-'+cfg.hcal+'-nu-latn',opt||{day:'numeric',month:'long',year:'numeric'}).format(s)}
+  catch(e){try{return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-nu-latn',opt||{day:'numeric',month:'long',year:'numeric'}).format(s)}catch(e2){return ''}}
+}
+function hijriMonth(d){const v=parseInt(hijri(d,{month:'numeric'}),10);return isNaN(v)?0:v}
+const fmtShort=d=>d.getDate()+' '+GM[d.getMonth()];
+
+/* ---------- Prayer times ---------- */
+// f = Fajr angle; i = Isha angle, or minutes after Maghrib when 60 or more
+const METHODS={
+  umm:{n:"أم القرى (السعودية)",f:18.5,i:90,ramadan:true},
+  mwl:{n:"رابطة العالم الإسلامي",f:18,i:17},
+  egypt:{n:"الهيئة المصرية العامة للمساحة",f:19.5,i:17.5},
+  karachi:{n:"جامعة العلوم الإسلامية - كراتشي",f:18,i:18},
+  kuwait:{n:"الكويت",f:18,i:17.5},
+  qatar:{n:"قطر",f:18,i:90},
+  dubai:{n:"دبي (الإمارات)",f:18.2,i:18.2},
+  isna:{n:"أمريكا الشمالية (ISNA)",f:15,i:15}
+};
+const D2R=Math.PI/180,R2D=180/Math.PI;
+const sn=x=>Math.sin(x*D2R),cs=x=>Math.cos(x*D2R),tn=x=>Math.tan(x*D2R);
+const asn=x=>R2D*Math.asin(x),acs=x=>R2D*Math.acos(x),at2=(y,x)=>R2D*Math.atan2(y,x),acot=x=>R2D*Math.atan(1/x);
+const fix=(a,b)=>{a=a-b*Math.floor(a/b);return a<0?a+b:a};
+function julian(y,m,d){if(m<=2){y-=1;m+=12}const A=Math.floor(y/100),B=2-A+Math.floor(A/4);return Math.floor(365.25*(y+4716))+Math.floor(30.6001*(m+1))+d+B-1524.5}
+function sunPos(jd){const D=jd-2451545,g=fix(357.529+0.98560028*D,360),q=fix(280.459+0.98564736*D,360),L=fix(q+1.915*sn(g)+0.020*sn(2*g),360),e=23.439-0.00000036*D,RA=at2(cs(e)*sn(L),cs(L))/15;return{decl:asn(sn(e)*sn(L)),eqt:q/15-fix(RA,24)}}
+const PRAYERS=[["fajr","الفجر"],["sunrise","الشروق"],["dhuhr","الظهر"],["asr","العصر"],["maghrib","المغرب"],["isha","العشاء"]];
+function prayerTimes(date,lat,lng){
+  const M=METHODS[cfg.method]||METHODS.umm;
+  const y=date.getFullYear(),m=date.getMonth()+1,d=date.getDate();
+  const base=new Date(y,m-1,d),tz=-base.getTimezoneOffset()/60;
+  const jd=julian(y,m,d)-lng/(15*24);
+  const mid=t=>fix(12-sunPos(jd+t).eqt,24);
+  const ang=(a,t,ccw)=>{const dc=sunPos(jd+t).decl,T=acs((-sn(a)-sn(dc)*sn(lat))/(cs(dc)*cs(lat)))/15;return mid(t)+(ccw?-T:T)};
+  const asr=t=>{const dc=sunPos(jd+t).decl;return ang(-acot(cfg.asr+tn(Math.abs(lat-dc))),t)};
+  const adj=h=>h+tz-lng/15;
+  const t={fajr:adj(ang(M.f,5/24,true)),sunrise:adj(ang(0.833,6/24,true)),dhuhr:adj(mid(12/24)),asr:adj(asr(13/24)),maghrib:adj(ang(0.833,18/24))};
+  if(M.i>=60) t.isha=t.maghrib+(M.i+(M.ramadan&&hijriMonth(base)===9?30:0))/60;
+  else t.isha=adj(ang(M.i,18/24));
+  const out={};for(const k in t)out[k]=new Date(base.getTime()+Math.round(t[k]*60)*60000);
+  return out;
+}
+const fmtTime=d=>{let h=d.getHours(),m=d.getMinutes();const ap=h<12?'ص':'م';h=h%12||12;return h+':'+pad(m)+' '+ap};
+
+/* ---------- Location ---------- */
+const CITIES=[["الرياض",24.7136,46.6753],["جدة",21.4858,39.1925],["مكة المكرمة",21.3891,39.8579],["المدينة المنورة",24.4672,39.6024],["الدمام",26.4207,50.0888],["أبها",18.2164,42.5053],["تبوك",28.3838,36.5550],["بريدة",26.3592,43.9818],["بيشة",20.0005,42.6052],["عدن",12.7855,45.0187],["المكلا",14.5425,49.1242],["سيئون",15.9431,48.7879],["صنعاء",15.3694,44.1910]];
+let loc=store.get('loc',null);
+const firstRun=!loc;
+if(!loc)loc={name:"الرياض",lat:24.7136,lng:46.6753,gps:false};
+const citySel=$('citySel');
+{const o=document.createElement('option');o.value='';o.textContent='أو اختر مدينة يدوياً…';citySel.appendChild(o)}
+CITIES.forEach((c,i)=>{const o=document.createElement('option');o.value=i;o.textContent=c[0];citySel.appendChild(o)});
+citySel.onchange=()=>{if(citySel.value==='')return;const c=CITIES[+citySel.value];cfg.autoLoc=false;saveCfg();$('autoLoc').checked=false;setLoc({name:c[0],lat:c[1],lng:c[2],gps:false});citySel.value=''};
+function renderLoc(){
+  $('locName').textContent=loc.name+(loc.gps?' (من الجوال)':'');
+  $('locCoords').textContent=loc.lat.toFixed(3)+'°, '+loc.lng.toFixed(3)+'°';
+}
+function setLoc(l){loc=l;store.set('loc',l);renderLoc();renderPrayers();scheduleNotifications();renderQibla()}
+let silentGps=false;
+function askGps(silent){
+  silentGps=!!silent;
+  if(!silent)toast('جارِ تحديد موقعك…');
+  if(bridge&&bridge.requestLocation){bridge.requestLocation();return}
+  if(navigator.geolocation)navigator.geolocation.getCurrentPosition(p=>onNativeLocation(p.coords.latitude,p.coords.longitude,''),()=>onNativeLocationError('تعذّر تحديد الموقع'),{timeout:15000});
+  else onNativeLocationError('تحديد الموقع غير متاح على هذا الجهاز');
+}
+window.onNativeLocation=(lat,lng,name)=>{
+  const moved=Math.abs(lat-loc.lat)>0.01||Math.abs(lng-loc.lng)>0.01;
+  setLoc({name:name||'موقعي',lat:+lat.toFixed(4),lng:+lng.toFixed(4),gps:true});
+  if(!silentGps||moved)toast('تم تحديد موقعك: '+(name||'موقعي'));
+};
+window.onNativeLocationError=msg=>{if(!silentGps)toast(msg||'تعذّر تحديد الموقع')};
+$('gpsBtn').onclick=()=>{cfg.autoLoc=true;saveCfg();$('autoLoc').checked=true;askGps(false)};
+
+/* ---------- Notifications ---------- */
+let notif=store.get('notif',{fajr:true,dhuhr:true,asr:true,maghrib:true,isha:true});
+function scheduleNotifications(){
+  if(!bridge||!bridge.scheduleAlarms)return;
+  const list=[],now=Date.now(),today=midnight(new Date());
+  for(let i=0;i<30;i++){
+    const day=new Date(today.getFullYear(),today.getMonth(),today.getDate()+i),pt=prayerTimes(day,loc.lat,loc.lng);
+    PRAYERS.forEach(([k,n])=>{if(k!=='sunrise'&&notif[k]&&pt[k].getTime()>now)list.push({t:pt[k].getTime(),n})});
+  }
+  try{bridge.scheduleAlarms(JSON.stringify(list))}catch(e){}
+}
+
+/* ---------- Settings UI ---------- */
+const mSel=$('mSel');
+Object.entries(METHODS).forEach(([k,v])=>{const o=document.createElement('option');o.value=k;o.textContent=v.n;mSel.appendChild(o)});
+mSel.value=cfg.method;cfg.asr=1;$('hSel').value=cfg.hcal;$('autoLoc').checked=cfg.autoLoc;
+const refreshAll=()=>{saveCfg();renderHome();renderPrayers();scheduleNotifications()};
+mSel.onchange=()=>{cfg.method=mSel.value;refreshAll();toast('طريقة الحساب: '+METHODS[cfg.method].n)};
+$('hSel').onchange=e=>{cfg.hcal=e.target.value;refreshAll()};
+const showAdj=()=>{$('hAdj').textContent=(cfg.hadj>0?'+':'')+cfg.hadj+' يوم'};
+$('hMinus').onclick=()=>{if(cfg.hadj>-2){cfg.hadj--;showAdj();refreshAll()}};
+$('hPlus').onclick=()=>{if(cfg.hadj<2){cfg.hadj++;showAdj();refreshAll()}};
+$('autoLoc').onchange=e=>{cfg.autoLoc=e.target.checked;saveCfg();if(cfg.autoLoc)askGps(false)};
+showAdj();
+
+/* ---------- Render: home ---------- */
+let todayTimes=null;
+function renderHome(){
+  const now=new Date(),s=starOf(now);
+  $('hStar').textContent=s.m[0];
+  $('hSeason').textContent=s.m[3]+' · '+s.m[4];
+  $('hDay').textContent='اليوم '+s.day+' من '+s.len+' يوماً';
+  $('hBar').style.width=(s.day/s.len*100)+'%';
+  $('hRange').textContent='من '+fmtShort(s.start)+' إلى '+fmtShort(s.end);
+  $('hDesc').textContent=s.m[5];
+  $('hNext').textContent=s.next[0];
+  $('hNextIn').textContent=s.nextIn===1?'غداً':'بعد '+s.nextIn+' أيام';
+  $('hijriLbl').textContent='الهجري ('+HCAL[cfg.hcal]+')';
+  $('dHijri').textContent=hijri(now);
+  $('dGreg').textContent=WD[now.getDay()]+' '+now.getDate()+' '+GM[now.getMonth()]+' '+now.getFullYear()+'م';
+  $('dSyr').textContent=SM[now.getMonth()];
+  $('methodName').textContent=METHODS[cfg.method].n;
+}
+function nextPrayer(){
+  const now=new Date();
+  for(const [k,n] of PRAYERS){if(k!=='sunrise'&&todayTimes[k]>now)return{k,n,t:todayTimes[k],today:true}}
+  const tm=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1);return{k:'fajr',n:'الفجر',t:prayerTimes(tm,loc.lat,loc.lng).fajr,today:false};
+}
+function renderPrayers(){
+  todayTimes=prayerTimes(new Date(),loc.lat,loc.lng);
+  const np=nextPrayer(),pl=$('plist');pl.innerHTML='';
+  PRAYERS.forEach(([k,n])=>{
+    const r=document.createElement('div');r.className='prow'+(np.k===k&&np.today?' on':'');
+    const isOn=k!=='sunrise'&&notif[k];
+    r.innerHTML='<span class="pn">'+n+'</span><span class="pt num">'+fmtTime(todayTimes[k])+'</span>';
+    const b=document.createElement('button');b.className='bell'+(isOn?' active':'');b.setAttribute('aria-label','إشعار '+n);
+    b.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 1112 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 004 0"/>'+(isOn?'':'<path d="M3 3l18 18"/>')+'</svg>';
+    if(k==='sunrise')b.disabled=true;
+    b.onclick=()=>{notif[k]=!notif[k];store.set('notif',notif);renderPrayers();scheduleNotifications();toast((notif[k]?'تم تفعيل':'تم إيقاف')+' إشعار '+n)};
+    r.appendChild(b);pl.appendChild(r);
+  });
+  tick();
+}
+function tick(){
+  if(!todayTimes)return;
+  const np=nextPrayer(),ms=np.t-new Date();
+  if(ms<0){renderPrayers();return}
+  const h=Math.floor(ms/3600000),m=Math.floor(ms%3600000/60000),s=Math.floor(ms%60000/1000);
+  $('npName').textContent=np.n+' · '+fmtTime(np.t);
+  $('npLeft').textContent=h+':'+pad(m)+':'+pad(s);
+}
+
+/* ---------- Stars list ---------- */
+function renderStars(){
+  const s=starOf(new Date()),box=$('slist');box.innerHTML='';let last='';
+  const Y=new Date().getFullYear();
+  MANAZIL.forEach((m,i)=>{
+    if(m[3]!==last){last=m[3];const h=document.createElement('h3');h.className='season';h.textContent=m[3];box.appendChild(h)}
+    const nx=MANAZIL[(i+1)%28],st=new Date(Y,m[1]-1,m[2]),en=new Date(Y,nx[1]-1,nx[2]-1);
+    const el=document.createElement('details');el.className='sitem'+(i===s.i?' cur':'');if(i===s.i)el.open=true;
+    el.innerHTML='<summary><span class="ix num">'+(i+1)+'</span><span class="nm">'+m[0]+(i===s.i?' <span class="chip" style="font-size:11px;padding:0 8px">الآن</span>':'')+'</span><span class="dt num">'+fmtShort(st)+' – '+fmtShort(en)+'</span></summary><p>'+m[5]+'</p>';
+    box.appendChild(el);
+  });
+}
+
+/* ---------- Qibla ---------- */
+const KAABA=[21.422487,39.826206];
+let qibla=0,wasAligned=false;
+function renderQibla(){
+  const dL=KAABA[1]-loc.lng;
+  qibla=fix(at2(sn(dL),cs(loc.lat)*tn(KAABA[0])-sn(loc.lat)*cs(dL)),360);
+  $('needle').style.transform='rotate('+qibla+'deg)';
+  $('qDeg').textContent=Math.round(qibla)+'°';
+  const R=6371,p1=loc.lat*D2R,p2=KAABA[0]*D2R,dp=(KAABA[0]-loc.lat)*D2R,dl=dL*D2R;
+  const a=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+  $('qDist').textContent='من '+loc.name+' · المسافة إلى الكعبة '+Math.round(2*R*Math.asin(Math.sqrt(a))).toLocaleString('en')+' كم';
+}
+function onOrient(e){
+  let h=null;
+  if(typeof e.webkitCompassHeading==='number')h=e.webkitCompassHeading;
+  else if(e.absolute!==false&&typeof e.alpha==='number')h=360-e.alpha;
+  if(h==null)return;
+  $('dial').style.transform='rotate('+(-h)+'deg)';
+  const diff=Math.abs(((qibla-h+540)%360)-180),al=diff<4;
+  $('compass').classList.toggle('aligned',al);
+  $('qHint').textContent=al?'أنت الآن باتجاه القبلة ✓':'أدر الجوال حتى يتجه السهم الذهبي إلى الأعلى (الفرق '+Math.round(diff)+'°)';
+  if(al&&!wasAligned)vib(80);wasAligned=al;
+}
+if('ondeviceorientationabsolute' in window)window.addEventListener('deviceorientationabsolute',onOrient);
+else window.addEventListener('deviceorientation',onOrient);
+
+/* ---------- Mushaf (offline) ---------- */
+const SURAHS="الفاتحة،البقرة،آل عمران،النساء،المائدة،الأنعام،الأعراف،الأنفال،التوبة،يونس،هود،يوسف،الرعد،إبراهيم،الحجر،النحل،الإسراء،الكهف،مريم،طه،الأنبياء،الحج،المؤمنون،النور،الفرقان،الشعراء،النمل،القصص،العنكبوت،الروم،لقمان،السجدة،الأحزاب،سبأ،فاطر،يس،الصافات،ص،الزمر،غافر،فصلت،الشورى،الزخرف،الدخان،الجاثية،الأحقاف،محمد،الفتح،الحجرات،ق،الذاريات،الطور،النجم،القمر،الرحمن،الواقعة،الحديد،المجادلة،الحشر،الممتحنة،الصف،الجمعة،المنافقون،التغابن،الطلاق،التحريم،الملك،القلم،الحاقة،المعارج،نوح،الجن،المزمل،المدثر،القيامة،الإنسان،المرسلات،النبأ،النازعات،عبس،التكوير،الانفطار،المطففين،الانشقاق،البروج،الطارق،الأعلى،الغاشية،الفجر،البلد،الشمس،الليل،الضحى،الشرح،التين،العلق،القدر،البينة،الزلزلة،العاديات،القارعة،التكاثر،العصر،الهمزة،الفيل،قريش،الماعون،الكوثر،الكافرون،النصر،المسد،الإخلاص،الفلق،الناس".split("،");
+const BASMALA="بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ";
+let quranState='idle',qSize=store.get('qSize',26),curSurah=0;
+function loadQuran(cb){
+  if(window.QURAN){quranState='ok';cb();return}
+  if(quranState==='loading')return;
+  quranState='loading';
+  const s=document.createElement('script');s.src='quran.js';
+  s.onload=()=>{quranState=window.QURAN?'ok':'fail';cb()};
+  s.onerror=()=>{quranState='fail';cb()};
+  document.head.appendChild(s);
+}
+function renderSurahs(q){
+  const box=$('surahs');box.innerHTML='';
+  SURAHS.forEach((n,i)=>{if(q&&!n.includes(q))return;
+    const info=window.QURAN?(window.QURAN[i].t==='m'?'مكية':window.QURAN[i].t==='d'?'مدنية':'')+' · '+arNum(window.QURAN[i].a.length)+' آية':'';
+    const b=document.createElement('button');b.innerHTML='<em class="num">'+arNum(i+1)+'</em><span>'+n+'</span><small>'+info+'</small>';
+    b.onclick=()=>openSurah(i+1,0);
+    box.appendChild(b)});
+  const last=store.get('lastRead',null);
+  $('resume').hidden=!last;
+  if(last)$('resumeName').textContent='سورة '+SURAHS[last.s-1]+' · آية '+arNum(last.a);
+}
+$('resumeBtn').onclick=()=>{const l=store.get('lastRead',null);if(l)openSurah(l.s,l.a)};
+$('sq').oninput=e=>renderSurahs(e.target.value.trim());
+function openSurah(n,ayah){
+  if(!window.QURAN){
+    if(quranState==='fail'){toast('نص المصحف غير موجود في هذه النسخة، سيتم فتحه من الإنترنت');window.open('https://quran.com/'+n,'_blank');return}
+    loadQuran(()=>openSurah(n,ayah));return;
+  }
+  curSurah=n;const S=window.QURAN[n-1];
+  $('qIndex').hidden=true;$('qReader').hidden=false;
+  $('rTitle').textContent='سورة '+SURAHS[n-1];
+  let h='<div class="sname">سورة '+SURAHS[n-1]+' · '+(S.t==='m'?'مكية':S.t==='d'?'مدنية':'')+' · '+arNum(S.a.length)+' آية</div>';
+  if(n!==1&&n!==9)h+='<div class="basmala">'+BASMALA+'</div>';
+  h+='<p class="ayat">'+S.a.map((t,i)=>'<span data-a="'+(i+1)+'">'+t+'</span> <span class="am">﴿'+arNum(i+1)+'﴾</span> ').join('')+'</p>';
+  $('rPage').innerHTML=h;
+  $('rPage').style.setProperty('--qs',qSize+'px');
+  $('rPrev').disabled=n===1;$('rNext').disabled=n===114;
+  store.set('lastRead',{s:n,a:ayah||1});
+  const main=$('main');
+  if(ayah>1){const el=document.querySelector('[data-a="'+ayah+'"]');if(el){el.classList.add('hl');setTimeout(()=>{main.scrollTop=el.getBoundingClientRect().top-main.getBoundingClientRect().top+main.scrollTop-90},30)}}
+  else main.scrollTop=0;
+}
+function closeReader(){$('qReader').hidden=true;$('qIndex').hidden=false;renderSurahs($('sq').value.trim());$('main').scrollTop=0}
+$('qBack').onclick=closeReader;
+$('rPrev').onclick=()=>openSurah(curSurah-1,0);
+$('rNext').onclick=()=>openSurah(curSurah+1,0);
+const setQs=v=>{qSize=Math.max(18,Math.min(44,v));store.set('qSize',qSize);$('rPage').style.setProperty('--qs',qSize+'px')};
+$('fsPlus').onclick=()=>setQs(qSize+2);$('fsMinus').onclick=()=>setQs(qSize-2);
+// remember the ayah being read
+let saveT=null;
+$('main').addEventListener('scroll',()=>{
+  if($('qReader').hidden||curView!=='quran')return;
+  clearTimeout(saveT);saveT=setTimeout(()=>{
+    const top=$('main').getBoundingClientRect().top+90;
+    for(const el of document.querySelectorAll('#rPage [data-a]')){if(el.getBoundingClientRect().bottom>top){store.set('lastRead',{s:curSurah,a:+el.dataset.a});break}}
+  },400);
+});
+
+/* ---------- Tasbeeh ---------- */
+const PRAYER_DHIKR=[["سبحان الله",33],["الحمد لله",33],["الله أكبر",33],["لا إله إلا الله وحده لا شريك له، له الملك وله الحمد وهو على كل شيء قدير",1]];
+const FREE_DHIKR=["أستغفر الله","سبحان الله","الحمد لله","الله أكبر","لا إله إلا الله","لا حول ولا قوة إلا بالله","سبحان الله وبحمده","اللهم صلِّ على محمد"];
+let tb=Object.assign({mode:'prayer',step:0,pc:0,done:false,fd:0,fc:{},day:'',today:0},store.get('tb2',{}));
+const todayKey=()=>new Date().toDateString();
+const saveTb=()=>store.set('tb2',tb);
+function renderTb(){
+  if(tb.day!==todayKey()){tb.day=todayKey();tb.today=0;saveTb()}
+  const pm=tb.mode==='prayer';
+  $('modePrayer').className=pm?'sel':'';$('modeFree').className=pm?'':'sel';
+  $('prayerSteps').hidden=!pm;$('freeDhikrs').hidden=pm;
+  if(pm){
+    $('prayerSteps').innerHTML=PRAYER_DHIKR.map((d,i)=>'<div class="'+(tb.done||i<tb.step?'done':i===tb.step?'now':'')+'">'+(i===3?'التهليل':d[0])+'<br>'+(i===3?'١':'٣٣')+'</div>').join('');
+    if(tb.done){$('tCount').textContent='✓';$('tDhikr').textContent='تقبّل الله منك';$('tTarget').textContent='اضغط «تصفير» للبدء من جديد'}
+    else{const d=PRAYER_DHIKR[tb.step];$('tCount').textContent=tb.pc;$('tDhikr').textContent=d[0];$('tTarget').textContent='من '+d[1]}
+    $('tStatLbl').textContent='الذكر';$('tStat').textContent=tb.done?'٤/٤':arNum(tb.step+1)+'/٤';
+  }else{
+    const box=$('freeDhikrs');box.innerHTML='';
+    FREE_DHIKR.forEach((d,i)=>{const b=document.createElement('button');b.textContent=d;if(i===tb.fd)b.className='sel';b.onclick=()=>{tb.fd=i;saveTb();renderTb()};box.appendChild(b)});
+    const c=tb.fc[tb.fd]||0;
+    $('tCount').textContent=c;$('tDhikr').textContent=FREE_DHIKR[tb.fd];$('tTarget').textContent='';
+    $('tStatLbl').textContent='المئات';$('tStat').textContent=Math.floor(c/100);
+  }
+  $('tToday').textContent=tb.today;
+}
+$('modePrayer').onclick=()=>{tb.mode='prayer';saveTb();renderTb()};
+$('modeFree').onclick=()=>{tb.mode='free';saveTb();renderTb()};
+$('tapBtn').onclick=()=>{
+  if(tb.mode==='prayer'){
+    if(tb.done)return;
+    tb.pc++;tb.today++;
+    if(tb.pc>=PRAYER_DHIKR[tb.step][1]){
+      vib(350);tb.pc=0;tb.step++;
+      if(tb.step>=PRAYER_DHIKR.length){tb.done=true;tb.step=PRAYER_DHIKR.length-1;toast('تمّت أذكار الصلاة، تقبّل الله')}
+    }
+  }else{
+    const c=(tb.fc[tb.fd]||0)+1;tb.fc[tb.fd]=c;tb.today++;
+    if(c%100===0){vib(400);toast(c+' مرة ✓')}
+  }
+  saveTb();renderTb();
+};
+$('tReset').onclick=()=>{if(tb.mode==='prayer'){tb.step=0;tb.pc=0;tb.done=false}else{tb.fc[tb.fd]=0}saveTb();renderTb()};
+
+/* ---------- Navigation ---------- */
+let curView='home';
+function show(v){curView=v;document.querySelectorAll('main>.view').forEach(s=>s.hidden=s.id!=='v-'+v);document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('act',b.dataset.v===v));$('main').scrollTop=0;
+  if(v==='stars'){renderStars();const c=document.querySelector('.sitem.cur');if(c)setTimeout(()=>c.scrollIntoView({block:'center'}),50)}
+  if(v==='quran'&&!window.QURAN)loadQuran(()=>renderSurahs($('sq').value.trim()));
+}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
+window.handleBack=()=>{
+  if(curView==='quran'&&!$('qReader').hidden){closeReader();return true}
+  if(curView!=='home'){show('home');return true}
+  return false;
+};
+
+/* ---------- Starfield on hero ---------- */
+function drawSky(){
+  const c=$('sky'),r=c.getBoundingClientRect(),dpr=window.devicePixelRatio||1;c.width=r.width*dpr;c.height=r.height*dpr;
+  const x=c.getContext('2d');x.scale(dpr,dpr);let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  for(let i=0;i<70;i++){x.globalAlpha=.15+rnd()*.5;x.fillStyle=rnd()>.85?'#e0b866':'#ffffff';x.beginPath();x.arc(rnd()*r.width,rnd()*r.height,rnd()*1.3+.2,0,7);x.fill()}
+}
+
+/* ---------- Boot ---------- */
+renderLoc();renderHome();renderPrayers();renderQibla();renderSurahs('');renderTb();drawSky();scheduleNotifications();
+if(firstRun)setTimeout(()=>askGps(false),600);
+else if(cfg.autoLoc&&bridge)setTimeout(()=>askGps(true),600);
+setInterval(tick,1000);
+let lastDay=new Date().getDate();
+setInterval(()=>{if(new Date().getDate()!==lastDay){lastDay=new Date().getDate();renderHome();renderPrayers();scheduleNotifications()}},30000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){renderHome();renderPrayers()}});
+</script>
+</body>
+</html>
